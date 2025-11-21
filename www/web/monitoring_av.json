@@ -1,0 +1,28 @@
+{
+  "timestamp": 1763658415,
+  "system": {
+    "cpu_load": 1.41
+  },
+  "network": {
+    "wan_rx_Mbps": 3.05,
+    "wan_tx_Mbps": 0.02,
+    "packet_errors": 0,
+    "packet_dropped": 316
+  },
+  "av": {
+    "jitter": 0.1435,
+    "jitter_p95": 13.8240,
+    "packet_loss": 0,
+    "mos": 4.29,
+    "hops": 15,
+    "rtt_icmp": 13.860
+  },
+  "wan_fibre": {
+    "crc": 0,
+    "link_stability": 100
+  },
+  "source_ip": {
+    "local": "192.168.0.134",
+    "public": "78.193.222.12"
+  }
+}

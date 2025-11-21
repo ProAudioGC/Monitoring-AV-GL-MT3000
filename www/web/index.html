@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Monitoring AV GL-MT3000</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+canvas { background: #fff; padding: 10px; border-radius: 6px; box-shadow: 0 0 5px #ccc; margin: 10px; }
+button {
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+}
+
+/* Couleurs */
+.btn-grey  { background:#ccc; color:#333; }
+.btn-red   { background:#dc3545; color:white; }
+.btn-green { background:#28a745; color:white; }
+
+/* Clignotement Start*/
+@keyframes blinkAnim {
+    50% { opacity: 0.3; }
+}
+.blink {
+    animation: blinkAnim 1s infinite;
+}
+status { font-weight: bold; margin-left: 10px; }
+.container { display: flex; flex-wrap: wrap; justify-content: space-between; }
+.chart-wrapper {
+    width: 32%;
+    position: relative;
+}
+.zoom-icon {
+    position:absolute;
+    top:5px;
+    right:5px;
+    width:22px;
+    height:22px;
+    background:white;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow:0 0 4px #666;
+    font-size:14px;
+    user-select:none;
+}
+</style>
+</head>
+<body>
+<h1 style="position: relative; display: inline-block;">
+  Monitoring AV GL-MT3000
+  <span style="
+      position: absolute;
+      right: -150px;  /* ajuster si besoin */
+      font-size: 0.5em;
+      color: #666;
+  ">&#169; 2025 G. CLARET</span>
+</h1>
+
+<div id="target-selector" style="position:absolute; top:20px; right:20px; background:#333; padding:10px; border-radius:6px; color:white;">
+    <label for="targetSelect">Destination :</label><br>
+    <select id="targetSelect" style="padding:5px; margin-top:5px; width:140px;">
+        <option value="8.8.8.8">8.8.8.8 (Google)</option>
+    </select>
+    <input type="text" id="targetInput" placeholder="Nouvelle IP/host" style="padding:5px; margin-top:5px; width:140px;"><br>
+    <button type="button" id="changeTargetBtn" style="padding:5px; margin-top:5px;">Changer</button>
+</div>
+
+<div>
+  <button id="startBtn" class="btn-active-start">Start</button>
+  <button id="stopBtn" class="btn-inactive-stop">Stop</button>
+  <span id="status">Stopped</span>
+  <span id="ipPublic" style="margin-left:20px;">IP: --</span>
+</div>
+
+<div class="container">
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(av_jitterChart)">&#128269;</div><canvas id="av_jitterChart"></canvas></div>
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(av_RTTicmpChart)">&#128269;</div><canvas id="av_RTTicmpChart"></canvas></div>
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(netErrorsChart)">&#128269;</div><canvas id="netErrorsChart"></canvas></div>
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(netChart)">&#128269;</div><canvas id="netChart"></canvas></div>
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(av_lossChart)">&#128269;</div><canvas id="av_lossChart"></canvas></div>
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(av_mosChart)">&#128269;</div><canvas id="av_mosChart"></canvas></div>
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(av_HopsChart)">&#128269;</div><canvas id="av_HopsChart"></canvas></div>
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(cpuChart)">&#128269;</div><canvas id="cpuChart"></canvas></div>
+  <div class="chart-wrapper"><div class="zoom-icon" onclick="openChartPopup(wanCRCChart)">&#128269;</div><canvas id="wanCRCChart"></canvas></div>
+</div>
+
+<div id="chartPopup" style="
+    display:none;
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background:rgba(0,0,0,0.7);
+    backdrop-filter: blur(3px);
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+">
+    <div id="popupContainer" style="background:white; padding:20px; border-radius:10px;
+                max-width:90%; max-height:90%; position:relative;">
+    </div>
+</div>
+<script>
+// -----------------------
+// Paramètres
+// -----------------------
+const MAX_POINTS = 100; // Nombre de points affichés par graphique
+
+// -----------------------
+// Fonction utilitaire pour ajouter des points
+// -----------------------
+function addData(chart, values) {
+    const now = new Date();
+    const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    chart.data.labels.push(t);
+
+    chart.data.datasets.forEach((ds, i) => {
+        if (Array.isArray(values)) {
+            ds.data.push(values[i] !== undefined ? parseFloat(values[i]) : 0);
+        } else {
+            ds.data.push(parseFloat(values)); // valeur unique pour un seul dataset
+        }
+    });
+
+    if (chart.data.labels.length > MAX_POINTS) {
+        chart.data.labels.shift();
+        chart.data.datasets.forEach(ds => ds.data.shift());
+    }
+
+    chart.update();
+}
+
+// -----------------------
+// Création graphiques
+// -----------------------
+
+// CPU (0-100%)
+const cpuChart = new Chart(
+  document.getElementById('cpuChart').getContext('2d'),
+  {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'CPU Load %', data: [], borderColor: 'red', fill: false, pointRadius: 1, pointHoverRadius: 4 }] },
+    options: { responsive: true, animation: false, scales: { y: { min: 0, max: 100 } } }
+  }
+);
+
+// Réseau WAN
+const netChart = new Chart(
+  document.getElementById('netChart').getContext('2d'),
+  {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'WAN RX (Mbps)', data: [], borderColor: 'green', fill: false, pointRadius: 1, pointHoverRadius: 4 },
+        { label: 'WAN TX (Mbps)', data: [], borderColor: 'purple', fill: false, pointRadius: 1, pointHoverRadius: 4 }
+      ]
+    },
+    options: { responsive: true, animation: false, scales: { y: { min: 0 } } }
+  }
+);
+
+// AV/VoIP - Jitter & P95
+const av_jitterChart = new Chart(
+  document.getElementById('av_jitterChart').getContext('2d'),
+  {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Jitter (ms)', data: [], borderColor: 'red', fill: false, pointRadius: 1, pointHoverRadius: 4 },
+        { label: 'P95 Jitter', data: [], borderColor: 'darkred', fill: false, pointRadius: 1, pointHoverRadius: 4 }
+      ]
+    },
+    options: { responsive: true, animation: false, scales: { y: { min: 0, max: 60} } }
+  }
+);
+
+// AV/VoIP - Packet Loss & Link Stability
+const av_lossChart = new Chart(
+  document.getElementById('av_lossChart').getContext('2d'),
+  {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Packet Loss %', data: [], borderColor: 'blue', fill: false, pointRadius: 1, pointHoverRadius: 4 },
+        { label: 'Link Stability %', data: [], borderColor: 'green', fill: false, pointRadius: 1, pointHoverRadius: 4 }
+      ]
+    },
+    options: { responsive: true, animation: false, scales: { y: { min: 0, max: 100} } }
+  }
+);
+
+// AV/VoIP - MOS
+const av_mosChart = new Chart(
+  document.getElementById('av_mosChart').getContext('2d'),
+  {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'MOS', data: [], borderColor: 'green', fill: false, pointRadius: 1, pointHoverRadius: 4 }
+      ]
+    },
+    options: { responsive: true, animation: false, scales: { y: { min: 1, max: 5 } } }
+  }
+);
+
+// AV/VoIP - Hops
+const av_HopsChart = new Chart(
+  document.getElementById('av_HopsChart').getContext('2d'),
+  {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Hops', data: [], borderColor: 'purple', fill: false, pointRadius: 1, pointHoverRadius: 4 }
+      ]
+    },
+    options: { responsive: true, animation: false, scales: { y: { min: 0 } } }
+  }
+);
+
+// AV/VoIP - RTT_icmp
+const av_RTTicmpChart = new Chart(
+  document.getElementById('av_RTTicmpChart').getContext('2d'),
+  {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'RTT icmp (ms)', data: [], borderColor: 'orange', fill: false, pointRadius: 1, pointHoverRadius: 4 }
+      ]
+    },
+    options: { responsive: true, animation: false, scales: { y: { min: 0, suggestedMax: 100} } }
+  }
+);
+
+// WAN Fibre - CRC
+const wanCRCChart = new Chart(
+  document.getElementById('wanCRCChart').getContext('2d'),
+  {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'CRC', data: [], borderColor: 'red', fill: false, pointRadius: 1, pointHoverRadius: 4 }
+      ]
+    },
+    options: { responsive: true, animation: false, scales: { y: { min: 0 } } }
+  }
+);
+
+// Network Errors - Deltas
+let lastErrors = null;
+let lastDropped = null;
+
+const netErrorsChart = new Chart(
+  document.getElementById('netErrorsChart').getContext('2d'),
+  {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Packet Errors ( t)', data: [], borderColor: 'red`', fill: false, pointRadius: 1, pointHoverRadius: 4 },
+        { label: 'Packet Dropped ( t)', data: [], borderColor: 'orange', fill: false, pointRadius: 1, pointHoverRadius: 4 }
+      ]
+    },
+    options: {
+        responsive: true,
+        animation: false,
+        scales: { y: { min: 0, max: 50 } } // bonne échelle pour la VoIP/AV
+    }
+  }
+);
+
+// --- Fonction de mise à jour ---
+function updateData() {
+    fetch('monitoring_av.json?' + new Date().getTime()) // cache-busting
+    .then(resp => resp.json())
+    .then(data => {
+        // IP locale / publique
+        document.getElementById('ipPublic').innerText =
+            "IP locale: " + (data.source_ip.local || "--") +
+            " | IP publique: " + (data.source_ip.public || "--");
+
+        // Ajouter les mesures aux graphiques
+        addData(cpuChart, data.system.cpu_load);
+
+        addData(netChart, [data.network.wan_rx_Mbps, data.network.wan_tx_Mbps]);
+
+        addData(av_jitterChart, [data.av.jitter, data.av.jitter_p95]);
+        addData(av_lossChart, [data.av.packet_loss, data.wan_fibre.link_stability]);
+        addData(av_mosChart, data.av.mos);
+        addData(av_HopsChart, data.av.hops);
+        addData(av_RTTicmpChart, data.av.rtt_icmp);
+        addData(wanCRCChart, data.wan_fibre.crc);
+
+        // Deltas pour erreurs réseau
+        let deltaErrors = 0;
+        let deltaDropped = 0;
+        if (lastErrors !== null) deltaErrors = data.network.packet_errors - lastErrors;
+        if (lastDropped !== null) deltaDropped = data.network.packet_dropped - lastDropped;
+
+        lastErrors = data.network.packet_errors;
+        lastDropped = data.network.packet_dropped;
+
+        if (deltaErrors < 0) deltaErrors = 0;
+        if (deltaDropped < 0) deltaDropped = 0;
+
+        addData(netErrorsChart, [deltaErrors, deltaDropped]);
+    })
+    .catch(err => console.error("Erreur updateData:", err));
+}
+
+// ---------------------------
+// Contrôle intervalle
+// ---------------------------
+let intervalID = null;
+function startCharts() {
+    if (!intervalID) {
+        updateData(); // update immédiat
+        intervalID = setInterval(updateData, 10000); // toutes les 10 sec
+        document.getElementById('status').innerText = 'Running';
+    }
+}
+function stopCharts() {
+    if(intervalID){
+        clearInterval(intervalID);
+        intervalID = null;
+        document.getElementById('status').innerText = 'Stopped';
+    }
+}
+
+function setState(state) {
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn  = document.getElementById('stopBtn');
+
+    startBtn.className = "";
+    stopBtn.className  = "";
+
+    switch(state) {
+        case "idle":   // AVANT START
+            startBtn.classList.add("btn-grey");
+            stopBtn.classList.add("btn-red");
+            break;
+
+        case "running":  // PENDANT MONITORING
+            startBtn.classList.add("btn-green", "blink");
+            stopBtn.classList.add("btn-grey");
+            break;
+
+        case "stopped": // APR hS STOP
+            startBtn.classList.add("btn-grey");
+            stopBtn.classList.add("btn-red");
+            break;
+    }
+}
+
+// --- Boutons Start/Stop ---
+function startMonitoring() {
+    fetch('/cgi-bin/start_monitor.sh')
+        .then(resp => resp.text())
+        .then(text => {
+            document.getElementById('status').innerText = text;
+            setState("running");  // start vert clignotant, stop gris
+            startCharts();
+        });
+}
+
+function stopMonitoring() {
+    fetch('/cgi-bin/stop_monitor.sh')
+        .then(resp => resp.text())
+        .then(text => {
+            document.getElementById('status').innerText = text;
+            setState("stopped");  // start gris, stop rouge
+            stopCharts();
+        });
+}
+
+// Listeners
+document.getElementById('startBtn').addEventListener('click', startMonitoring);
+document.getElementById('stopBtn').addEventListener('click', stopMonitoring);
+
+// ---------------------------
+// Gestion dynamique de TARGET
+// ---------------------------
+const fixedDefaults = [
+    { ip: "8.8.8.8", label: "8.8.8.8 (Google)" }
+];
+
+function loadTarget() {
+    fetch("/cgi-bin/get_target.sh")
+        .then(r => r.text())
+        .then(text => {
+            const list = text.trim().split("\n").filter(l => l !== "");
+            const select = document.getElementById("targetSelect");
+
+            // Effacer les options
+            select.innerHTML = "";
+
+            // Ajouter les valeurs fixes (Google)
+            fixedDefaults.forEach(entry => {
+                const opt = document.createElement("option");
+                opt.value = entry.ip;
+                opt.textContent = entry.label;
+                select.appendChild(opt);
+            });
+
+            // Ajouter les IP de l'historique (sans doublons)
+            list.forEach(ip => {
+                if (!fixedDefaults.some(e => e.ip === ip)) {
+                    const opt = document.createElement("option");
+                    opt.value = ip;
+                    opt.textContent = ip;
+                    select.appendChild(opt);
+                }
+            });
+
+            // première entrée = dernière utilisée (ce que set_target.sh met en haut)
+            const currentTarget = list[0] || "8.8.8.8";
+
+            // sélectionner l `^yentrée correcte
+            select.value = currentTarget;
+
+            // mettre à jour la zone de texte
+            document.getElementById("targetInput").value = "";
+        })
+        .catch(err => console.error("Erreur loadTarget:", err));
+}
+
+function changeTarget() {
+    const inputValue = document.getElementById("targetInput").value.trim();
+    const selectValue = document.getElementById("targetSelect").value;
+
+    // priorité à ce que l'utilisateur saisit
+    const newTarget = inputValue !== "" ? inputValue : selectValue;
+
+    fetch("/cgi-bin/set_target.sh?target=" + encodeURIComponent(newTarget))
+        .then(r => r.text())
+        .then(() => {
+            loadTarget();
+        })
+        .catch(err => console.error("Erreur changeTarget:", err));
+}
+
+document.getElementById("changeTargetBtn").addEventListener("click", changeTarget);
+
+window.addEventListener("load", loadTarget);
+
+let originalParent = null;
+let originalCanvas = null;
+
+function openChartPopup(chart) {
+    const popup = document.getElementById('chartPopup');
+    const popupContainer = document.getElementById('popupContainer');
+
+    // Stocker l `^yoriginal
+    originalCanvas = chart.canvas;
+    originalParent = originalCanvas.parentNode;
+
+    // Déplacer le canvas dans le popup
+    popupContainer.appendChild(originalCanvas);
+
+    // Redimensionner pour prendre presque tout l `^yespace
+    originalCanvas.style.width = '100%';
+    originalCanvas.style.height = '100%';
+
+    // Afficher le popup
+    popup.style.display = 'flex';
+}
+
+document.getElementById('chartPopup').addEventListener('click', (e) => {
+    if (e.target.id === 'chartPopup') {
+        const popup = e.target;
+        popup.style.display = 'none';
+
+        // Remettre le canvas original à sa place
+        if (originalParent && originalCanvas) {
+            originalCanvas.style.width = '';
+            originalCanvas.style.height = '';
+            originalParent.appendChild(originalCanvas);
+        }
+    }
+});
+
+// --- Vérification du statut au chargement ---
+function checkStatus() {
+    fetch('/cgi-bin/status_monitor.sh')
+        .then(resp => resp.text())
+        .then(state => {
+            state = state.trim();
+
+            if (state === "running") {
+                setState("running");
+                startCharts();
+            } else {
+                setState("stopped");
+                stopCharts();
+            }
+        });
+}
+
+// appel automatique au chargement
+window.addEventListener("load", checkStatus);
+
+</script>
+</body>
+</html>
