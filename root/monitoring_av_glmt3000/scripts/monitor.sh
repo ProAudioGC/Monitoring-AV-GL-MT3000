@@ -164,7 +164,6 @@ MOS=$(printf "%.2f" "${MOS:-0}")
 # CRC
 CRC=$(ethtool -S $WAN_IF 2>/dev/null | grep "rx_fcs_errors" | awk '{print $2}')
 CRC=${CRC:-0}
-CRC=$(printf "%d" "$CRC" 2>/dev/null || echo 0)
 
 # Link stability : ping rapide sur 1 paquet avec timeout 1s
 if ping -c 1 -W 1 $TARGET >/dev/null 2>&1; then
