@@ -193,7 +193,7 @@ cat > "$JSON_FILE" <<EOF
   "av": {
     "jitter": $JITTER,
     "jitter_p95": $P95_JITTER,
-    "packet_loss": ${PACKET_LOSS:-0},
+    "packet_loss": ${PKT_LOSS:-0},
     "mos": $MOS,
     "hops": $HOPS,
     "rtt_icmp": $RTT
