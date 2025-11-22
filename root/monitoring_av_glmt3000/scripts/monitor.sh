@@ -111,9 +111,7 @@ DROPPED_PERCENT=$(awk "BEGIN {printf \"%.2f\", (($RX_DROPPED+$TX_DROPPED)*100)/(
 # -----------------------
 # AV / VoIP
 # -----------------------
-TARGET=$(cat /tmp/monitor_target 2>/dev/null || echo "8.8.8.8")
-
-# Récupération du jitter et P95 depuis le script qui renvoie un JSON
+# Récupération du jitter et P95
 JITTER_JSON=$(bash /root/monitoring_av_glmt3000/scripts/jitter_monitor.sh $TARGET 2>/dev/null || echo '{"jitter":0,"p95":0}')
 JITTER=$(echo "$JITTER_JSON" | jq '.jitter')
 P95_JITTER=$(echo "$JITTER_JSON" | jq '.p95')
