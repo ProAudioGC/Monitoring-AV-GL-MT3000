@@ -10,7 +10,7 @@ PUBLIQUE=true            # true pour récupérer l'IP publique
 JSON_FILE="/www/web/monitoring_av.json"
 
 # -----------------------
-# SYSTEM (optimisé)
+# SYSTEM
 # -----------------------
 
 CPU_FREQ=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null || echo 0)
@@ -52,7 +52,7 @@ SOURCE_IP_PUBLIC="$PUB_IP"
 # -----------------------
 # NETWORK
 # -----------------------
-WAN_IF="eth0"  # interface fibre Freebox
+WAN_IF="eth0"  # interface WAN
 
 RX_NOW=$(cat /sys/class/net/$WAN_IF/statistics/rx_bytes)
 TX_NOW=$(cat /sys/class/net/$WAN_IF/statistics/tx_bytes)
@@ -81,7 +81,7 @@ else
         DELTA_TIME=1
     fi
 
-    # Conversion octets/sec  f^r Mbps
+    # Conversion octets/sec  Mbps
     WAN_RX_Mbps=$(awk "BEGIN {printf \"%.2f\", ($DELTA_BYTES_RX*8)/($DELTA_TIME*1000000)}")
     WAN_TX_Mbps=$(awk "BEGIN {printf \"%.2f\", ($DELTA_BYTES_TX*8)/($DELTA_TIME*1000000)}")
 
@@ -103,7 +103,7 @@ TX_DROPPED=$(cat /sys/class/net/$WAN_IF/statistics/tx_dropped 2>/dev/null || ech
 PACKET_ERRORS=$((RX_ERRORS + TX_ERRORS))
 PACKET_DROPPED=$((RX_DROPPED + TX_DROPPED))
 
-# Pourcentage de paquets perdus (utile pour AV/VoIP)
+# Pourcentage de paquets perdus
 TOTAL_RX=$(cat /sys/class/net/$WAN_IF/statistics/rx_packets 2>/dev/null || echo 1)
 TOTAL_TX=$(cat /sys/class/net/$WAN_IF/statistics/tx_packets 2>/dev/null || echo 1)
 DROPPED_PERCENT=$(awk "BEGIN {printf \"%.2f\", (($RX_DROPPED+$TX_DROPPED)*100)/($TOTAL_RX+$TOTAL_TX)}")
