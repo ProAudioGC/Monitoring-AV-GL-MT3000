@@ -162,8 +162,9 @@ MOS=$(printf "%.2f" "${MOS:-0}")
 # WAN Fibre
 # -----------------------
 # CRC
-CRC=$(ethtool -S $WAN_IF 2>/dev/null | grep "rx_fcs_errors" | awk '{print $2}')
-CRC=${CRC:-0}
+RX_ERRORS=$(cat /sys/class/net/$WAN_IF/statistics/rx_errors)
+RX_DROPPED=$(cat /sys/class/net/$WAN_IF/statistics/rx_dropped)
+CRC=$((RX_ERRORS + RX_DROPPED))
 
 # Link stability : ping rapide sur 1 paquet avec timeout 1s
 if ping -c 1 -W 1 $TARGET >/dev/null 2>&1; then
