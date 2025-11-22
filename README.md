@@ -1,3 +1,5 @@
+<img width="1813" height="1195" alt="Screenshot1" src="https://github.com/user-attachments/assets/d6ba7b76-1efc-44b7-830e-8ca2a1addda8" />
+
 # Monitoring-AV-GL-MT3000
 This project allows real-time monitoring of VoIP/AV service quality, network performance, etc., of a GL-MT3000 router. The data is displayed via a web interface with dynamic graphs.
 Ce projet permet de surveiller en temps réel la qualité de service VoIP/AV, les performances réseau ...etc  d’un routeur GL-MT3000. Les données sont affichées via une interface web avec des graphiques dynamiques.
