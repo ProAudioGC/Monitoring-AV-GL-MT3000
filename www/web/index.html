@@ -63,7 +63,7 @@ status { font-weight: bold; margin-left: 10px; }
   ">&#169; 2025 G. CLARET</span>
 </h1>
 
-<div id="target-selector" style="position:absolute; top:20px; right:20px; background:#333; padding:10px; border-radius:6px; color:white;">
+<div id="target-selector" style="position:absolute; top:80px; right:20px; background:#333; padding:10px; border-radius:6px; color:white;">
     <label for="targetSelect">Destination :</label><br>
     <select id="targetSelect" style="padding:5px; margin-top:5px; width:140px;">
         <option value="8.8.8.8">8.8.8.8 (Google)</option>
@@ -77,6 +77,18 @@ status { font-weight: bold; margin-left: 10px; }
   <button id="stopBtn" class="btn-inactive-stop">Stop</button>
   <span id="status">Stopped</span>
   <span id="ipPublic" style="margin-left:20px;">IP: --</span>
+</div>
+
+<div style="display:flex; align-items:center; gap:10px;">
+    <button id="btn_bufferbloat" style="padding:10px 20px;">Lancer test Bufferbloat</button>
+    <div id="bufferbloat_result" style="
+        padding:10px 20px;
+        border-radius:6px;
+        background:#ddd;
+        min-width:180px;
+        text-align:center;
+        font-weight:bold;
+    ">Test en attente `M-&</div>
 </div>
 
 <div class="container">
@@ -106,6 +118,7 @@ status { font-weight: bold; margin-left: 10px; }
                 max-width:90%; max-height:90%; position:relative;">
     </div>
 </div>
+
 <script>
 // -----------------------
 // Paramètres
@@ -164,7 +177,6 @@ const netChart = new Chart(
     },
     options: { responsive: true, animation: false, scales: { y: { min: 0 } } }
   }
-);
 
 // AV/VoIP - Jitter & P95
 const av_jitterChart = new Chart(
@@ -242,6 +254,7 @@ const av_RTTicmpChart = new Chart(
     options: { responsive: true, animation: false, scales: { y: { min: 0, suggestedMax: 100} } }
   }
 );
+
 
 // WAN Fibre - CRC
 const wanCRCChart = new Chart(
@@ -490,7 +503,6 @@ document.getElementById('chartPopup').addEventListener('click', (e) => {
         }
     }
 });
-
 // --- Vérification du statut au chargement ---
 function checkStatus() {
     fetch('/cgi-bin/status_monitor.sh')
@@ -511,6 +523,66 @@ function checkStatus() {
 // appel automatique au chargement
 window.addEventListener("load", checkStatus);
 
+async function runBufferbloatTest() {
+    const box = document.getElementById("bufferbloat_result");
+    const btn = document.getElementById("btn_bufferbloat");
+
+    // Indication test en cours
+    box.innerText = "Test en cours `M-&";
+    box.style.background = "#ddd";
+    btn.disabled = true;
+    btn.innerText = "Test en cours `M-&";
+
+    try {
+        // Timeout 10 sec pour éviter blocage
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        const res = await fetch("/cgi-bin/run_bufferbloat.sh", { signal: controller.signal });
+        clearTimeout(timeout);
+
+        const txt = await res.text();
+
+        let data;
+        try {
+            data = JSON.parse(txt);
+        } catch (e) {
+            box.innerText = "Erreur JSON reçue : " + txt;
+            box.style.background = "#f44336";
+            btn.disabled = false;
+            btn.innerText = "Lancer test Bufferbloat";
+            return;
+        }
+
+        // Récupération des valeurs
+        const avg = data.ping_avg_ms ?? 999;
+        const status = data.bufferbloat_test ?? "failed";
+
+        // Couleur selon ping
+        let color = "#f44336"; // rouge par défaut
+        if (avg < 20) color = "#00c853"; // vert
+        else if (avg < 40) color = "#ffd600"; // jaune
+        else if (avg < 70) color = "#ff6d00"; // orange
+
+        // Affichage
+        box.style.background = color;
+        box.innerText = `Bufferbloat : ${status.toUpperCase()} (${avg} ms)`;
+
+    } catch (e) {
+        box.innerText = "Erreur : test interrompu ou CGI inaccessible.";
+        box.style.background = "#f44336";
+    }
+
+    // Réactivation du bouton
+    btn.disabled = false;
+    btn.innerText = "Lancer test Bufferbloat";
+}
+window.addEventListener("load", () => {
+      document.getElementById("btn_bufferbloat").addEventListener("click", runBufferbloatTest);
+  });
+
 </script>
 </body>
 </html>
+
+
