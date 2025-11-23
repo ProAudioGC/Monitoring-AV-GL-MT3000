@@ -7,6 +7,7 @@ Ce projet permet de surveiller en temps réel la qualité de service VoIP/AV, le
 ## Fonctionnalités
 
 - Monitoring du **CPU load**.
+- Monitoring manuel du **Bufferbload**.
 - Monitoring du **trafic WAN** (RX/TX Mbps).
 - Mesure du **jitter**, **RTT ICMP**, **packet loss**, **MOS** et **hops**.
 - Suivi des **erreurs et paquets perdus** sur l’interface WAN.
