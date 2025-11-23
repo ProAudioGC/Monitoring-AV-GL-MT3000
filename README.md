@@ -1,4 +1,4 @@
-<img width="1813" height="1195" alt="Screenshot1" src="https://github.com/user-attachments/assets/d6ba7b76-1efc-44b7-830e-8ca2a1addda8" />
+<img width="1792" height="1120" alt="Screenshot1" src="https://github.com/user-attachments/assets/10c60035-6af8-418d-b36b-6d15dfd213a2" />
 
 # Monitoring-AV-GL-MT3000
 This project allows real-time monitoring of VoIP/AV service quality, network performance, etc., of a GL-MT3000 router. The data is displayed via a web interface with dynamic graphs.
